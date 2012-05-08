@@ -38,6 +38,10 @@ class IRCChannel:
 		k = self.chanLogKey
 		self.redis.hset( k, 'topic', encodeList( [ topic ] ) )
 
+	def setConfig( self, configName, value ):
+		k = encodeList( [ u'channel', self.userID, self.serverName, self.chanName ] )
+		self.redis.hset( k, configName, value );
+
 	def markAsJoined( self, joined ):
 		k = self.chanLogKey
 		if joined:
@@ -197,8 +201,13 @@ class IRCUser:
 	def on_join( self, irc, e ):
 		ch = e.target
 		nick = nm_to_n( e.source )
-		self.getChannel( ch ).addUser( nick, u'' )
-		self.getChannel( ch ).appendLog( [ int(time.time()), u'join', e.source ] )
+
+		channel = self.getChannel( ch )
+		channel.addUser( nick, u'' )
+		channel.appendLog( [ int(time.time()), u'join', e.source ] )
+		if nick == self.realNickname: # me
+			# 채널에 성공적으로 참가했으니, autojoin 플래그를 설정한다
+			channel.setConfig( u'autojoin', u'1' )
 	
 	def on_part( self, irc, e ):
 		ch = e.target
@@ -206,9 +215,13 @@ class IRCUser:
 		message = u''
 		if len(e.arguments) > 0:
 			message = e.arguments[ 0 ]
-		self.getChannel( e.target ).removeUser( nick )
-		self.getChannel( e.target ).appendLog( [ int(time.time()), u'part', e.source, message ] )
+
+		channel = self.getChannel( ch )
+		channel.removeUser( nick )
+		channel.appendLog( [ int(time.time()), u'part', e.source, message ] )
 		if nick == self.realNickname: # me
+			# 채널에서 명시적으로 떠났으니, autojoin 플래그를 클리어한다
+			channel.setConfig( u'autojoin', u'0' )
 			self.channelClosed( ch )
 
 	def on_kick( self, irc, e ):
@@ -222,6 +235,10 @@ class IRCUser:
 		self.getChannel( e.target ).appendLog( [ int(time.time()), u'kick', kicker, victim, message ] )
 		if victim == self.realNickname: # me
 			self.channelClosed( ch )
+
+			# 킥 당했으니 1회에 한해 자동조인을 시도한다
+			# (밴 등) 조인이 실패하는 경우 유저가 알아서 하도록 한다
+			self.irc.join( e.target, u"" )
 
 	def on_quit( self, irc, e ):
 		nick = nm_to_n( e.source )
@@ -240,6 +257,8 @@ class IRCUser:
 	def on_welcome( self, irc, e ):
 		print( '----REAL NICKNAME: ' + nm_to_n( e.target ) )
 		self.realNickname = nm_to_n( e.target )
+
+		# 오토조인 설정이 있는 모든 채널에 참가 요청한다
 		for chName, chSetting in self.chSettings.items():
 			if chSetting['autojoin'] == '1':
 				key = chSetting['key'] or ''

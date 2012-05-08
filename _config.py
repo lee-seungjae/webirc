@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Á¦ÀÏ ¹Ù±ù ·¹ÀÌ¾î¿¡¼­¸¸ importÇÒ °Í
-# ¶óÀÌºê·¯¸®¿¡ ¼ÓÇÏ´Â ¸ðµâÀº Á÷Á¢ import ±ÝÁö
+# ì œì¼ ë°”ê¹¥ ë ˆì´ì–´ì—ì„œë§Œ importí•  ê²ƒ
+# ë¼ì´ë¸ŒëŸ¬ë¦¬ì— ì†í•˜ëŠ” ëª¨ë“ˆì€ ì§ì ‘ import ê¸ˆì§€
 
 REDIS_ADDR = 'localhost'
 REDIS_PORT = 6379
