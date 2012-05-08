@@ -204,7 +204,7 @@ class IRCUser:
 
 		channel = self.getChannel( ch )
 		channel.addUser( nick, u'' )
-		channel.appendLog( [ int(time.time()), u'join', e.source ] )
+		channel.appendLog( [ int(time.time()), u'join', nick ] )
 		if nick == self.realNickname: # me
 			# 채널에 성공적으로 참가했으니, autojoin 플래그를 설정한다
 			channel.setConfig( u'autojoin', u'1' )
@@ -218,7 +218,7 @@ class IRCUser:
 
 		channel = self.getChannel( ch )
 		channel.removeUser( nick )
-		channel.appendLog( [ int(time.time()), u'part', e.source, message ] )
+		channel.appendLog( [ int(time.time()), u'part', nick, message ] )
 		if nick == self.realNickname: # me
 			# 채널에서 명시적으로 떠났으니, autojoin 플래그를 클리어한다
 			channel.setConfig( u'autojoin', u'0' )
@@ -249,7 +249,7 @@ class IRCUser:
 		for _, chan in self.channels.items():
 			if chan.hasUser( nick ):
 				chan.removeUser( nick )
-				chan.appendLog( [ int(time.time()), u'quit', e.source, message ] )
+				chan.appendLog( [ int(time.time()), u'quit', nick, message ] )
 
 	def on_ping( self, irc, e ):
 		irc.pong( e.target )
