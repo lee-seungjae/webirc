@@ -1,0 +1,123 @@
+<!doctype html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title>sencha touch test</title>
+	<link rel="stylesheet"href="../touch/resources/css/sencha-touch.css" type="text/css" />
+	<link rel="stylesheet"href="../style.css" type="text/css" />
+	<script src="http://connect.facebook.net/en_US/all.js"></script>
+	<script type="text/javascript"i src="../touch/sencha-touch-debug.js"></script>
+	<script type="text/javascript" src="../util.js"></script>
+	<script type="text/javascript" src="chaninfo.js"></script>
+	<script type="text/javascript" src="logparser.js"></script>
+	<script type="text/javascript" src="config.js"></script>
+</head>
+<body>
+<!-- FACEBOOK LOGIN { -->
+<div id="fb-root"></div>
+<!-- FACEBOOK LOGIN } -->
+</body>
+
+
+<div id='status' style='background:#cccccc'>로딩 중..</div>
+
+irc server:
+<form onsubmit='return saveconfig()'>
+	addr <input type='text' id='addr' size='20'><br/>
+	port <input type='text' id='port' size='20'><br/>
+	use SSL <input type='checkbox' id='ssl' size='20'><br/>
+
+	nickname <input type='text' id='nick' size='20'>←아직 한글안됨. 영문으로만 적어주세요<br/>
+	<input type='submit' value='저장'><br/>
+</form>
+
+
+<script>
+Ext.setup({
+  tabletStartupScreen: 'tablet_startup.png',
+  phoneStartupScreen: 'phone_startup.png',
+  icon: 'icon.png',
+  glossOnIcon: false,
+  onReady : function() {
+    // facebook 인증 시작 - 이후 세션 기반으로 바뀌면 제거해야 한다
+    FB.init( {
+        appId:'182399195162695',
+        cookie:true,
+        status:true,
+        oauth:true
+        } );
+    FB.getLoginStatus( function(response) {
+        if( ! response.authResponse )
+        {
+            // Login 실패
+            window.location = '/static/login.html'
+            return;
+        }
+
+        fbInfo = response.authResponse;
+        // 인증정보 처리 끝.
+
+        var request = { 'req': 'CONFIG_GET' };
+        RemoteRequest(
+			request,
+			function(response, opts) { // 오브젝트로 그대로 날라옴에 주의.
+				OnConfigGet(response);
+			},
+			function(response, opts) {
+				alert("error " + response.responseText);
+			},
+			60000);
+		});
+	}
+});
+
+function OnConfigGet(response)
+{
+	document.getElementById('status').innerHTML = '.';
+
+//	document.write( 'err:' + response.err );
+//	document.write( '<br/>' );
+	for( name in response.servers )
+	{
+//		document.write( name + '-' + Ext.JSON.encode(config) + '<br/>' );
+		var config = response.servers[name];
+		document.getElementById('addr').value = config.addr;
+		document.getElementById('port').value = config.port;
+		document.getElementById('ssl').checked = ( config.ssl == '1' );
+		document.getElementById('nick').value = config.nickname;
+		return;
+	}
+//	document.write( Ext.JSON.encode(defaultConfig) );
+}
+
+function saveconfig()
+{
+	document.getElementById('status').innerHTML = '저장 중..';
+
+	var request = {
+		'req': 'CONFIG_SET_SERVER',
+		'name': 'upnl',
+		'addr': document.getElementById('addr').value,
+		'port': document.getElementById('port').value,
+		'ssl': (document.getElementById('ssl').checked ? '1' : '0'),
+		'nickname': document.getElementById('nick').value,
+		'username': document.getElementById('nick').value,
+		'realname': document.getElementById('nick').value
+		};
+	RemoteRequest(
+		request,
+		function(response, opts) {
+			document.getElementById('status').innerHTML = '.';
+		},
+		function(response, opts) {
+			alert("error " + response.responseText);
+		},
+		60000);
+
+	return false;
+}
+
+</script>
+<hr>
+<a href ='http://irc.ricanet.com/'>돌아가기</a>
+</html>

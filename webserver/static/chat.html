@@ -1,0 +1,414 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="ko" lang="ko">
+
+<head>
+	<meta http-equiv="content-type" content="application/xhtml+xml; charset=utf-8" />
+
+	<link rel="stylesheet" href="style.css" />
+	<link href="http://code.jquery.com/mobile/latest/jquery.mobile.min.css" rel="stylesheet" type="text/css" />
+
+	<script src="http://code.jquery.com/jquery-1.6.2.min.js"></script>
+	<script src="http://code.jquery.com/mobile/latest/jquery.mobile.min.js"></script>
+	<script src="http://connect.facebook.net/en_US/all.js"></script>
+	<script type="text/javascript" src="json2.js"></script>
+	<script type="text/javascript" src="util.js"></script>
+	<script type="text/javascript" src="chaninfo.js"></script>
+	<script type="text/javascript" src="logparser.js"></script>
+
+	<title>chat</title>
+	<meta name="viewport" content="width=device-width; initial-scale=1.0; maximum-scale=1.0;" />
+	<script type="text/javascript">
+		var timeout = { 'wait': 30000, 'nowait': 5000 };
+		var fbInfo = undefined; // facebook auth information
+		// 토픽 정보를 업데이트한다.
+		function RefreshChanInfo() {
+			$("#Header>div.channelinfo>span.topic").html(chanDict[GetCurrentChannel()].topic);
+			// fixme: 채널 유저 정보 관리하는 자료구조가 변경될 수 있음
+			$("#Header>div.channelinfo>span.users").html(chanDict[GetCurrentChannel()].users.length);
+		}
+		
+		// 현재 대화중인 채널을 설정한다.
+		function SetCurrentChannel(chanID) {
+			// 기존에 보이던 채널을 숨긴다.
+			$('#LogArea>div').each(function() { $(this).hide(); });
+			$(".channelNavBar>a.ui-btn-active").each(function() {
+						$(this).removeClass('ui-btn-active');
+					});
+
+			// 선택된 채널을 보이게 한다.
+			$(".channelNavBar>a." + chanID).each(function() {
+						// 선택된 채널의 update 사항은 모두 확인되었다.
+						$(this).removeClass('updated');
+						$(this).addClass('ui-btn-active');
+					});
+			$("#ChanLog_" + chanID).show();
+			RefreshChanInfo();
+
+			// 현재 로그의 가장 아래로 스크롤을 내린다
+			$(document).scrollTop($(document).height());
+		}
+		
+		// 서버에 XHR을 보낸다
+		// request : 요청으로 보낼 객체(JSON.stringify 할 객체)
+		// successCallback : 요청이 성공했을 때 불릴 Callback.
+		//                   function(response, textStatus, jqXHR)
+		// errorCallback : 요청이 실패했을 때 불릴 Callback.
+		//                 function(jqXHR, textStatus, errorThrown)
+		// timemout : 타임아웃 시간(milliseconds)
+		// TODO : 인터페이스 바꿀 필요가 있을 지도? Object 하나만 받도록.
+		function RemoteRequest(request, successCallback, errorCallback, timeout) {
+			return $.ajax({
+				url: '/xhr',
+				dataType: 'json',
+				type: 'GET',
+				data: { 'req': JSON.stringify(request), 'fbInfo': JSON.stringify(fbInfo) },
+				success: successCallback,
+				error: errorCallback,
+				timeout: timeout 
+			});
+		}
+
+		// chat form 에서 submit 되면 해당 내용을 말한다.
+		function Say() {
+			request = {
+				req: 'CMD',
+				cmd: 'say',
+				server: GetCurrentServer(), 
+				channel: GetCurrentChannel(),
+				arg: [$('#say').val()]
+			};
+
+			// 서버로 ajax 요청
+			RemoteRequest(request,
+					function(response, textStatus, jqXHR) {
+						if( response['err'] ) { 
+						// TODO: XHR 단의 에러와 프로토콜단의 err를 통합해서 하나로 묶을까 -_-;
+							alert('say error ' + response['err']);
+						}
+						$('#say').val('');
+					},
+					function(jqXHR, textStatus, errorThrown) {
+						alert("say error " + errorThrown);
+					},
+					timeout.nowait
+					);
+			return false;
+		}
+
+		// 새 채널을 위한 DOM element 를 만들고 이벤트를 세팅한다.
+		function CreateChannelElement(chanInfo) {
+			$(".channelNavBar").each(function() {
+						$(this).append(
+							"<a href='#ChanLog_" + chanInfo.id + "' class='" + chanInfo.id + " ui-btn ui-btn-up-C' data-role='button'>"
+							+ "<span class='ui-btn-inner'>"
+							+ "<span class='ui-btn-text'>"
+							+ chanInfo.name
+							+ "</span>"
+							+ "</span>"
+							+ "</a>");
+						});
+
+			// 클릭 이벤트를 연결한다.
+			$('.channelNavBar>a.' + chanInfo.id).each(function() {
+					$(this).click(function() {
+							SetCurrentChannel(chanDict[$(this).text()].id);
+							return false;
+						});
+					});
+
+			// 로그가 표시될 영역을 만든다.
+			$("#LogArea").append(
+					"<div id='ChanLog_" + chanInfo.id + "'> </div>"
+					);
+			$("#ChanLog_" + chanInfo.id).hide();
+		}
+
+		// log update 를 반영한다.
+		// 해당 채널이 없으면 새 창을 만든다.
+		// 해당 채널에 대한 고유 id가 필요할지도?(다중서버 대비)
+		function ApplyLogUpdate(response, textStatus, jqXHR) {
+			var channels = response.channels;
+			var newestChannel = undefined; // 가장 최근에 새로 들어간 채널. 없으면 undefined
+			for( var i = 0; i < channels.length; ++i ) {
+				var currChan = channels[i];
+				// 얘기한 적이 없는 채널이면 새 채널이다.
+				if( chanDict[currChan.name] === undefined ) {
+					// 채널 정보를 기록한다.
+					chanDict[currChan.name] = new ChannelInfo( nextChanID, currChan.name, currChan.topic, currChan.users, currChan.server );
+					++nextChanID;
+					var currID = chanDict[currChan.name].id; 
+					chanIDMap[currID] = currChan.name;
+					newestChannel = currID;
+
+					// 새 채널에 대한 정보를 화면에 표시한다.
+					CreateChannelElement(chanDict[currChan.name]);
+				}
+				// 로그를 출력한다.
+				// 우선 Update, Init 의 정보만 처리하도록. 
+				// log는 id(시간) 순으로 정렬되어 있다고 가정한다.
+				var logHTML = "";
+
+				// 이 요청이 오래된 로그 요청에 대한 응답인가?
+				var currChanInfo = chanDict[currChan.name];
+				var isOldLog = currChanInfo.oldestLogID && currChan.log && currChan.log.length 
+					&& currChanInfo.oldestLogID > currChan.log[0][IDX_ID];
+
+				// 기존 마지막 로그정보를 얻어온다.
+				var currLogInfo = new Object();
+				currLogInfo.isOldLog = isOldLog;
+				currLogInfo.latestLog = new Object();
+				var logDivID = "#ChanLog_" + currChanInfo.id;
+				if( !isOldLog ) {
+					currLogInfo.latestLog.who = $(logDivID + ">div:last>span.logWho").text();
+					currLogInfo.latestLog.type = $(logDivID + ">div:last").attr('class');
+				}
+
+				// 로그를 행 별로 분석한다.
+				for( var j = 0; j < currChan.log.length; ++j ) {
+					currLogInfo.log = [];
+					// 로그 전처리.
+					for( var k = 0; k < currChan.log[j].length; ++k ) {
+						currLogInfo.log.push(escapeHTML(currChan.log[j][k]));
+					}
+
+					logHTML += (( logParser[currLogInfo.log[IDX_TYPE]] )? 
+								logParser[currLogInfo.log[IDX_TYPE]]: 
+								logParser.__default__) (currLogInfo, currChanInfo);
+
+					// 마지막 로그 정보를 현재 로그로 업데이트한다
+					currLogInfo.latestLog.who = currLogInfo.log[IDX_CONTENT+0];
+					currLogInfo.latestLog.type = currLogInfo.log[IDX_TYPE];
+				}
+
+				// 새로 받아온 로그는 기존 로그와 교집합이 존재하지 않는다고 가정한다.
+				// TODO: 교집합이 있을 경우 처리. 가끔 같은 로그가 2번 들어와 있는 경우가 있다.
+				// 변경 로그가 없는 경우도 고려한다. 
+				if( currChan.log.length == 0 ) {
+					continue;
+				}
+
+				if( currChanInfo.oldestLogID === undefined 
+						|| currChanInfo.oldestLogID > currChan.log[0][IDX_ID]) {
+					currChanInfo.oldestLogID = currChan.log[0][IDX_ID];
+					$(logDivID).prepend(logHTML);
+					// LOG_OLD 일 경우 스크롤을 위로 올리자.
+					$(document).scrollTop(0);
+				}
+				else {
+					// 기존 마지막 로그가 화면 안에 있었나?
+					var latestLog = $(logDivID + ">div:last");
+					var latestLogTop = latestLog.offset()? latestLog.offset().top: undefined;
+
+					currChanInfo.newestLogID = currChan.log[currChan.log.length - 1][IDX_ID];
+					$(logDivID).append(logHTML);
+
+					// 현재 확인중인 채널이 아니면 updated 되었음을 알려주자(say 한정).
+					// fixme : 기존 코드에서도 가장 마지막 로그 한 줄만 읽었고, 지금은 아예 currLog 라는 것이 없어졌다.
+					// 일단 문제가 되는 코드는 제거했고, 앞쪽에서 처리하는 코드를 추가할 필요가 있다.
+					if( GetCurrentChannel() != currChan.name ) {
+						$(".channelNavBar>a." + currChanInfo.id).each(function() {
+									$(this).addClass('updated');
+								});
+					}
+					// 현재 확인중인 채널이고, 과거 최신 로그가 화면 안에 보이는 상황이면 스크롤을 내리자.
+					else {
+						if( latestLog
+								&& latestLogTop >= $(window).scrollTop() 
+								&& (latestLogTop - $(window).scrollTop()) < $(window).height() ) {
+							$(document).scrollTop($(document).height());
+						}
+					}
+
+				}
+
+				// undefined 처리
+				if( currChanInfo.newestLogID === undefined ) {
+					currChanInfo.newestLogID = currChan.log[currChan.log.length - 1][IDX_ID];
+				}
+
+			}
+			// 새로 들어간 채널이 있다면, 그 채널로 포커스가 옮겨가도록 한다.
+			if( newestChannel !== undefined )
+				SetCurrentChannel( newestChannel );
+		}
+
+		// 나간 채널의 창을 닫는다.
+		// 빈 로그라도 오지 않은 채널은 나간 채널이다.
+		function CloseChannel(response) {
+			var channels = response.channels;
+			var updatedChannels = {};
+			var lastUpdatedChannel = undefined;
+			var lastUpdatedTime = undefined;
+			for( var i = 0; i < channels.length; ++i ) {
+				updatedChannels[channels[i].name] = true;
+
+				// 가장 최근에 업데이트가 있었던 채널 정보를 구해 놓는다.
+				if( lastUpdatedTime === undefined 
+						|| ( channels[i].log.length > 0 
+							&& lastUpdatedTime < channels[i].log[channels[i].log.length-1].date ) ) {
+					lastUpdatedChannel = channels[i].name;
+					if( channels[i].log.length > 0 ) {
+						lastUpdatedTime = channels[i].log[channels[i].log.length-1].date;
+					}
+				}
+			}
+
+			for( var ch in chanDict ) {
+				if( updatedChannels[ch] ) {
+					continue;
+				}
+
+				// 업데이트된 내용이 없으면 창을 닫자.
+				var currChan = chanDict[ch];
+
+				// 닫을 채널이 활성화된 채널이면 가장 최근에 업데이트된 채널을 활성화
+				if( GetCurrentChannel() == ch && lastUpdatedChannel ) {
+					SetCurrentChannel(chanDict[lastUpdatedChannel].id);
+				}
+
+				// DOM Element 날리기
+				$('.channelNavBar>a.' + currChan.id).each(function() {
+							$(this).remove();
+						});
+				$('#ChanLog_'  + currChan.id).remove();
+				
+				// 자료구조 날리기
+				delete chanIDMap[currChan.id];
+				delete chanDict[ch];
+			}
+		}
+
+		// 새 로그 업데이트분을 요청한다.
+		function RequestLogUpdate() {
+			var request = { 'req': 'LOG_UPDATE', 'channels': [] };
+			for( var chan in chanDict ) {
+				if( chanDict[chan].newestLogID == undefined ) {
+					continue;
+				}
+				request.channels.push({ 'name': chanDict[chan].name, 'lastid': chanDict[chan].newestLogID, 'server': chanDict[chan].server });
+			}
+			RemoteRequest(request,
+						PollingLogUpdate,
+						function(jqXHR, textStatus, errorThrown) {
+							if( !textStatus || textStatus == 'timeout' || textStatus == 'error' ) {
+								RequestLogUpdate();
+							}
+							else
+							{
+								alert('textStatus :"' + textStatus + '", errorThrown :"' + errorThrown + '"');
+							}
+						},
+						timeout.wait);
+		}
+
+		// 로그 업데이트를 반영하고 다시 감시한다.
+		function PollingLogUpdate(response, textStatus, jqXHR) {
+			// 로그 내용을 받아온다.
+			ApplyLogUpdate(response, textStatus, jqXHR);
+
+			// 로그 업데이트가 없었던 채널을 정리한다.
+			CloseChannel(response);
+			
+			// 감시를 시작한다!
+			RequestLogUpdate();
+		}
+
+		// 초기화 코드.
+		$(document).ready(function() {
+		
+			// FaceBook Login
+			FB.init( {
+				appId:'182399195162695',
+				cookie:true,
+				status:true,
+				oauth:true
+				} );
+			FB.getLoginStatus( function(response) {
+				if( ! response.authResponse )
+				{
+					// Login 실패
+					window.location = './login.html'
+					return;
+				}
+
+				// stick the footer at the bottom of the page if we're on an iPad/iPhone due to viewport/page bugs in mobile webkit
+				// from http://www.lazycoder.com/weblog/2010/05/27/quick-jquery-hack-to-fix-positionfixed-toolbars-in-iphoneipadipod-touch/
+				if(navigator.platform == 'iPad' || navigator.platform == 'iPhone' || navigator.platform == 'iPod')
+				{
+					$("#Header").css("position", "static");
+				};
+				// fixme: 일단 애니메이션 끄자
+				$.fx.off = true;
+
+				// 로그인 성공!
+				// TODO: 로그인 정보 갱신할 필요가 있지 않을까?
+				fbInfo = response.authResponse;
+				// 감시 시작!
+				var request = { 'req': 'LOG_INIT' };
+				RemoteRequest(request,
+							PollingLogUpdate,
+							function(jqXHR, textStatus, errorThrown) {
+								alert("error " + errorThrown);
+								// 네트워크 에러면 한번만 더 시도해보자.
+								if( !textStatus || textStatus == 'timeout' || textStatus == 'error' ) {
+									RemoteRequest(request, 
+										PollingLogUpdate,
+										function(jqXHR, textStatus, errorThrow) {
+											alert("error " + errorThrown);
+										},
+										timeout.nowait);
+								}
+								else
+								{
+									alert('textStatus :"' + textStatus + '", errorThrown :"' + errorThrown + '"');
+								}
+							},
+							timeout.nowait);
+
+				// event handler 연결
+				$('#ChatForm').submit(Say);
+				$('#OldLog').click(function() {
+							var currChan = GetCurrentChannel();
+							var request = { 'req': 'LOG_OLD', 'channel': currChan, 'lastid': chanDict[currChan].oldestLogID };
+							RemoteRequest(request,
+								ApplyLogUpdate,
+								function(jqXHR, textStatus, errorThrown) {
+									// 재시도는 필요없지
+									alert("old log error " + errorThrown);
+								},
+								timeout.nowait);
+						});
+
+			});
+		});
+
+
+	</script>
+</head>
+<body>
+<div id='Header' data-role="header" data-position="fixed">
+	<div class='channelNavBar' data-role='controlgroup'></div>
+	<div class='channelinfo'>
+		<span class='topic'></span>
+		<span class='mode'>+Dmy</span>
+		<span class='users'></span>
+	</div>
+</div>
+
+<!-- FACEBOOK LOGIN { -->
+<div id="fb-root"></div>
+<!-- FACEBOOK LOGIN } -->
+<INPUT id='OldLog' type='button' value='OldLog' />
+<div id='LogArea'></div>
+
+<FORM id='ChatForm' data-inline='true'>
+	<span class='chatbox'>
+		<INPUT id='say' type='TEXT' name='chat' value='' data-inline='true'/>
+	</span>
+	<INPUT type='submit' class='submit' value='Send' data-inline='true' data-role='none'/>
+</FORM>
+
+</body>
+</html>

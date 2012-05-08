@@ -1,0 +1,56 @@
+ <html>
+    <head>
+      <title>webirc: Login</title>
+    </head>
+    <body>
+      <div id="fb-root"></div>
+      <script src="http://connect.facebook.net/en_US/all.js"></script>
+      <script>
+/*
+function checkLogin( response )
+{
+	if( response.authResponse )
+	{
+		//alert('userID: ' + response.authResponse.userID );
+		window.location = './chat.html'
+	}
+}
+
+FB.Event.subscribe( 'auth.sessionChange', checkLogin )
+
+/*
+FB.Event.subscribe('auth.authResponseChange', function(response) {
+	alert('The status of the session is: ' + response.authResponse.access_token + response.authResponse.userID );
+});
+*/
+
+FB.init({ 
+	appId:'182399195162695',
+	cookie:true, 
+	status:true,
+	xfbml:true,
+	oauth:true
+	});
+
+function refresh()
+{
+	FB.getLoginStatus(function(response) {
+	  if (response.status === 'connected') {
+		document.getElementById('status').innerHTML = '로그인 되었음. <a href="http://irc.ricanet.com">돌아가기</a>';
+	  } else if (response.status === 'not_authorized') {
+		// the user is logged in to Facebook, 
+		// but has not authenticated your app
+		document.getElementById('status').innerHTML = '앱을 허가해주세요.';
+	  } else {
+		// the user isn't logged in to Facebook.
+		document.getElementById('status').innerHTML = '페이스북 로그인해주세요.';
+	  }
+	 });
+}
+refresh()
+      </script>
+      <fb:login-button onlogin='refresh()'>Login with Facebook</fb:login-button>
+	  <div id='status'></div>
+
+    </body>
+ </html>
