@@ -11,9 +11,10 @@ function logTimeString(log, latestLog) {
     var classStr = 'logDate';
     var logDate = new Date(log[IDX_DATE] * 1000);
     // 생략 조건들
-    // 기존 log의 타입이 say 이고, 분이 같고, 시간이 1분 이내(60000ms)이면 생략한다.
+    // 기존 log의 타입이 say 이고, 분이 같고, 말한 사람이 같고, 시간이 1분 이내(60000ms)이면 생략한다.
     if( latestLog && latestLog.type == 'say' 
         && latestLog.date.getMinutes() == logDate.getMinutes()
+        && latestLog.who == log[IDX_CONTENT+0]
         && Math.abs(latestLog.date.getTime() - logDate.getTime()) <= 60000 )
     {
         classStr += " hidden";
@@ -104,6 +105,7 @@ logParser.join = function(logInfo, chanInfo) {
 		+ "<span class='logText'>"
 		+ logInfo.log[IDX_CONTENT]
 		+ " has joined " + chanInfo.name
+        + "</span>"
 		+ logTimeString(logInfo.log)
 		+ "</div>";
 	return ret;
@@ -115,6 +117,7 @@ logParser.quit = function(logInfo, chanInfo) {
 		+ logInfo.log[IDX_CONTENT]
 		+ " has quit " + chanInfo.name
 		+ " (" + logInfo.log[IDX_CONTENT+1] + ")"
+        + "</span>"
 		+ logTimeString(logInfo.log)
 		+ "</div>";
 	return ret;
@@ -126,9 +129,23 @@ logParser.part = function(logInfo, chanInfo) {
 		+ logInfo.log[IDX_CONTENT]
 		+ " has left " + chanInfo.name
 		+ " (" + logInfo.log[IDX_CONTENT+1] + ")"
+        + "</span>"
 		+ logTimeString(logInfo.log)
 		+ "</div>";
 	return ret;
+}
+
+logParser.kick = function(logInfo, chanInfo) {
+    var ret = "<div class='kick'>"
+    + "<span class='logText'>"
+    + logInfo.log[IDX_CONTENT+1]
+    + " was kicked from " + chanInfo.name
+    + " by " + logInfo.log[IDX_CONTENT+0]
+    + " (" + logInfo.log[IDX_CONTENT+2] + ")"
+    + "</span>"
+    + logTimeString(logInfo.log)
+    + "</div>";
+    return ret;
 }
 
 logParser.nick = function(logInfo, chanInfo) {
@@ -136,6 +153,7 @@ logParser.nick = function(logInfo, chanInfo) {
 		+ "<span class='logText'>"
 		+ logInfo.log[IDX_CONTENT]
 		+ " is now known as " + logInfo.log[IDX_CONTENT+1]
+        + "</span>"
 		+ logTimeString(logInfo.log)
 		+ "</div>";
 	return ret;
@@ -150,13 +168,12 @@ logParser.__default__ = function (logInfo, chanInfo) {
 	return ret;
 }
 
+var rUrlRegex = new RegExp(ClevisURL._patterns.url, 'gmi');
 function preprocessLog(logtext) {
     var escaped = escapeHTML(logtext);
-
     if( escaped.replace )
     {
-    var rUrlRegex = new RegExp(/(?:(?:(https?|ftp|telnet):\/\/|[\s\t\r\n\[\]\`\<\>\"\'])((?:[\w$\-_\.+!*\'\(\),]|%[0-9a-f][0-9a-f])*\:(?:[\w$\-_\.+!*\'\(\),;\?&=]|%[0-9a-f][0-9a-f])+\@)?(?:((?:(?:[a-z0-9\-가-힣]+\.)+[a-z0-9\-]{2,})|(?:[\d]{1,3}\.){3}[\d]{1,3})|localhost)(?:\:([0-9]+))?((?:\/(?:[\w$\-_\.+!*\'\(\),;:@&=ㄱ-ㅎㅏ-ㅣ가-힣]|%[0-9a-f][0-9a-f])+)*)(?:\/([^\s\/\?\.:<>|#]*(?:\.[^\s\/\?:<>|#]+)*))?(\/?[\?;](?:[a-z0-9\-]+(?:=[^\s:&<>]*)?\&)*[a-z0-9\-]+(?:=[^\s:&<>]*)?)?(#[\w\-]+)?)/gmi);
-    return escaped.replace(rUrlRegex, '<a href="$&" target="_blank">$&</a>');
+        return escaped.replace(rUrlRegex, '<a href="$&" target="_blank">$&</a>');
     }
     return escaped;
 }
