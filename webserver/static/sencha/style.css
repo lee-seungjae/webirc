@@ -1,5 +1,5 @@
 body {
-    font-size: 14px;
+    font-size: 12px;
     font-family: "나눔고딕", NanumGothic,"Helvetica Neue", HelveticaNeue, "Helvetica-Neue", Helvetica, "BBAlpha Sans", sans-serif
 }
 
@@ -25,7 +25,7 @@ body {
 	font-size: 0.7em;
 }
 
-.currenttopic, .topiclog, .topicinfo, .join, .quit, .part, .nick {
+.currenttopic, .topiclog, .topicinfo, .join, .quit, .part, .nick, .kick {
 	padding-left: 15px;
 	color: #228B22;
 }

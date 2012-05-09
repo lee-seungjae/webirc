@@ -172,7 +172,7 @@ def xhrLogOld( uid, request ):
 			{
 				'name': chName,
 				'server': svName,
-				'log': getLogList(r, logKey, end=lastID)
+				'log': getLogList(R, logKey, end=lastID)
 			}]
 		}
 

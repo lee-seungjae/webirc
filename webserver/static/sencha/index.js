@@ -15,7 +15,6 @@ Ext.define('Log.Model', {
           fields: ['logid', 'date', 'who','type','text']
   }
 });
-var carousel = null;
 var fbInfo = undefined;
 
 function ShowOldLog(response, request) 
@@ -322,10 +321,56 @@ function RequestLogUpdate() {
             60000);
 }
 
+// 로그 업데이트가 없었던 채널을 정리한다.
+function CloseChannel(response)
+{
+    var channels = response.channels;
+    var updatedChannels = {};
+    var lastUpdatedChannel = undefined;
+    var lastUpdatedTime = undefined;
+    for( var i = 0; i < channels.length; ++i ) {
+        updatedChannels[channels[i].name] = channels[i].server;
+
+        // 가장 최근에 업데이트가 있었던 채널 정보를 구해 놓는다.
+        if( lastUpdatedTime === undefined 
+                || ( channels[i].log.length > 0 
+                    && lastUpdatedTime < channels[i].log[channels[i].log.length-1].date ) ) {
+            lastUpdatedChannel = GetChannelInfo(channels[i].server, channels[i].name);
+            if( channels[i].log.length > 0 ) {
+                lastUpdatedTime = channels[i].log[channels[i].log.length-1].date;
+            }
+        }
+    }
+
+    var carousel = Ext.getCmp("mainCarousel");
+    for( var ch in chanDict ) {
+        var currChan = chanDict[ch];
+
+        // 업데이트된 내용이 있으면 통과
+        if( updatedChannels[currChan.name] == currChan.server ) {
+            continue;
+        }
+
+        // 닫을 채널이 활성화된 채널이면 가장 최근에 업데이트된 채널을 활성화
+        var activeChannel = GetCurrentChannelInfo();
+        if( activeChannel.name == currChan.name && activeChannel.server == currChan.server && lastUpdatedChannel ) {
+            carousel.setActiveItem(Ext.getCmp(lastUpdatedChannel.listID));
+        }
+
+        // list component Element 날리기
+        carousel.remove(Ext.getCmp(currChan.listID), true);
+        Ext.data.StoreManager.unregister(currChan.storeID);
+
+        // 자료구조 날리기
+        delete chanNameMap[currChan.name+"@"+currChan.server];
+        delete chanDict[ch];
+    }
+}
+
 // 로그 업데이트를 반영하고 다시 감시한다.
 function PollingLogUpdate(response, request) {
     ApplyLogUpdate(response, request); // 로그 내용을 받아온다.    
-    //CloseChannel(response); // 로그 업데이트가 없었던 채널을 정리한다.
+    CloseChannel(response); // 로그 업데이트가 없었던 채널을 정리한다.
     RequestLogUpdate(); // 감시를 시작한다!
 }
 
