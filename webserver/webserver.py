@@ -14,6 +14,7 @@ import traceback
 
 import protocol
 import LogMetadata
+import LogReader
 from etc import *
 from setting import *
 import redisutil
@@ -30,31 +31,6 @@ maxLogID = 10001
 
 import flask
 app = flask.Flask(__name__)
-
-def getLogList( r, logKey, begin=None, end=None, maxLogLine=30 ):
-	app.logger.debug('--------getLogList logKey: %s begin:%s end:%s', logKey, begin, end)
-	
-	logs = []
-
-	# 로그 가져올 ID 범위 계산
-	idRange = [ int(i) for i in r.hmget(logKey, ['begin', 'end']) ]
-	if begin is not None and begin > idRange[0]:
-		idRange[0] = begin
-	if end is not None and end < idRange[1]:
-		idRange[1] = end
-
-	logIds = [ str(i) for i in range(*idRange) ][-maxLogLine:]
-
-	# 가져올 로그가 없으면 빈 리스트를 반환한다.
-	if len(logIds) == 0:
-		return logs
-
-	# 로그 가져와 파싱
-	for lid, rawLog in zip(logIds, r.hmget(logKey, logIds)):
-		l = [int(lid)] + protocol.decodeList( rawLog )
-		logs.append(l)
-
-	return logs
 
 def getTopic( r, logKey ):
 	topic = r.hget(logKey, 'topic')
@@ -82,7 +58,7 @@ def xhrLogInit( uid, request ):
 					'name': chName,
 					'topic': getTopic(R, logKey),
 					'server': svName,
-					'log': getLogList(R, logKey),
+					'log': LogReader.getRecentLog(R, logKey),
 					'users': getUsers(R, logKey)
 					})
 	
@@ -127,19 +103,17 @@ def xhrLogUpdate( uid, request ):
 			svName = ch[0][0]
 			chName = ch[0][1]
 			lastID = requestedChatIDs.get( (svName, chName) )
-			if lastID <> None:
-				beginID = int( lastID ) + 1
-			else:
-				beginID = None
-			endID = ch[1] + 1
 
-			log = None
-			if beginID == endID:
-				log = []
-			else:
+			with rpool.get() as R:
 				logKey = protocol.encodeList( [ u'log', uid, svName, chName ] )
-				with rpool.get() as R:
-					log = getLogList( R, logKey, beginID, endID )
+				if lastID is None:
+					# 이전까지 몰랐는데 이제 알게 된 채널 (새 채널에 조인한 경우)
+					# 처음 접속한 것과 마찬가지로 로그를 얻어온다
+					log = LogReader.getRecentLog( R, logKey )
+				else:
+					# 이전에도 알고 있었고 이번에 갱신된 채널.
+					beginID = int( lastID ) + 1
+					log = LogReader.getLogAfter( R, logKey, beginID )
 
 			channels.append({
 				'name': chName,
@@ -172,7 +146,7 @@ def xhrLogOld( uid, request ):
 			{
 				'name': chName,
 				'server': svName,
-				'log': getLogList(r, logKey, end=lastID)
+				'log': LogReader.getLogBefore(r, logKey, lastID)
 			}]
 		}
 

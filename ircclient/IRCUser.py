@@ -33,6 +33,9 @@ class IRCChannel:
 		self.logEndID += 1
 		self.redis.hset( k, 'end', str( self.logEndID ) )
 		self.redis.publish( 'i2h', encodeList( [ u'newlog', self.userID, self.serverName, self.chanName, unicode( newLogID ) ] ) )
+
+	def clearLog( self ):
+		self.redis.delete( self.chanLogKey )
 	
 	def setTopic( self, topic ):
 		k = self.chanLogKey
@@ -116,11 +119,14 @@ class IRCUser:
 			self.channels[ chanName ] = ch
 		return ch
 
-	def channelClosed( self, chanName ):
+	def channelClosed( self, chanName, clearLog ):
 		assert( isinstance( chanName, unicode ) )
 		ch = self.channels.get( chanName )
 		if ch != None:
 			ch.markAsJoined( False )
+			if clearLog:
+				ch.clearLog()
+
 			self.channels.pop( chanName )
 
 	def getSystemChannel( self ):
@@ -149,10 +155,10 @@ class IRCUser:
 
 	def cmd_part( self, msg ):
 		( chan, text ) = msg[ 3 ], msg[ 4 ]
-		if chan[0] == u'#':
+		if chan[0] == u'#': # 일반 채널. 서버에 채널 떠나기를 요청한다
 			self.irc.part( chan, text )
-		else:
-			self.channelClosed( chan )
+		else: # 쿼리. 서버의 응답 없이 즉시 처리한다
+			self.channelClosed( chan, True )
 
 	def cmd_nick( self, msg ):
 		self.nickname = msg[ 3 ]
@@ -222,7 +228,7 @@ class IRCUser:
 		if nick == self.realNickname: # me
 			# 채널에서 명시적으로 떠났으니, autojoin 플래그를 클리어한다
 			channel.setConfig( u'autojoin', u'0' )
-			self.channelClosed( ch )
+			self.channelClosed( ch, True )
 
 	def on_kick( self, irc, e ):
 		ch = e.target
@@ -234,7 +240,7 @@ class IRCUser:
 		self.getChannel( e.target ).removeUser( victim )
 		self.getChannel( e.target ).appendLog( [ int(time.time()), u'kick', kicker, victim, message ] )
 		if victim == self.realNickname: # me
-			self.channelClosed( ch )
+			self.channelClosed( ch, False )
 
 			# 킥 당했으니 1회에 한해 자동조인을 시도한다
 			# (밴 등) 조인이 실패하는 경우 유저가 알아서 하도록 한다
