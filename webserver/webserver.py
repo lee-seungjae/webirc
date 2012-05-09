@@ -146,7 +146,7 @@ def xhrLogOld( uid, request ):
 			{
 				'name': chName,
 				'server': svName,
-				'log': LogReader.getLogBefore(r, logKey, lastID)
+				'log': LogReader.getLogBefore(R, logKey, lastID)
 			}]
 		}
 

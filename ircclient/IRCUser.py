@@ -202,7 +202,8 @@ class IRCUser:
 		assert( self.irc == irc )
 		msg = u'%s: %s' % ( e.eventType, u', '.join( e.arguments ) )
 		self.getSystemChannel().appendLog( [ int(time.time()), u'etc', msg ] )
-		print( u'[DEFAULT]%s/%s/%s/%s' % ( e.eventType, e.source, e.target, e.arguments ) )
+		#print( u'[DEFAULT]%s/%s/%s/%s' % ( e.eventType, e.source, e.target, e.arguments ) )
+		print( u'[DEFAULT]%s' % e.eventType )
 
 	def on_join( self, irc, e ):
 		ch = e.target
