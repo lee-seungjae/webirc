@@ -15,6 +15,7 @@ import traceback
 import protocol
 import LogMetadata
 import LogReader
+import Session
 from etc import *
 from setting import *
 import redisutil
@@ -241,10 +242,31 @@ def xhrCmd( uid, request ):
 	response = { u'err': u'' }
 	return flask.jsonify(**response)
 	
+def errorResponse(err):
+	response = { u'err': err }
+	return flask.jsonify(**response)
+
 # 핸들러들 
 @app.route('/')
 def index():
 	return flask.redirect(flask.url_for('static', filename='chat.html'))
+
+# 로그인 처리
+@app.route('/login', methods=['GET'])
+def processLogin():
+	fbInfo = json.loads(flask.request.values['fbInfo'])
+	userID = fbInfo.get(u'userID')
+	if userID == None:
+		return errorResponse('no userID')
+	
+	with rpool.get() as R:
+		(skey, secr) = Session.createSession(R, userID, 86400)
+		response = {}
+		ret = flask.jsonify(**response)
+		ret.set_cookie(u'skey', skey)
+		ret.set_cookie(u'secr', secr)
+		return ret
+
 
 # XMLHttpRequest 처리
 @app.route('/xhr', methods=['GET'])
@@ -261,24 +283,29 @@ def processXHR():
 			}
 
 		# json으로 넘어온 request object 파싱
-		if( (flask.request.method != 'GET') or
-			('req' not in flask.request.values) or
-			('fbInfo' not in flask.request.values) ):
+		if (flask.request.method != 'GET') or ('req' not in flask.request.values):
 			abort(500)
 			return
 		print( flask.request.values['req'] )
 		reqObject = json.loads(flask.request.values['req'])
-		fbInfo = json.loads(flask.request.values['fbInfo'])
 
-		# cookie 출력
-		app.logger.debug(" cookie - %s", str(flask.request.cookies))
+		# cookie로부터 인증 정보를 수집
+		#app.logger.debug(" cookie - %s", str(flask.request.cookies))
+		userID = None
+		print( flask.request.cookies )
+		sessionKey = flask.request.cookies.get('skey')
+		secret = flask.request.cookies.get('secr')
+		if sessionKey is not None and secret is not None:
+			with rpool.get() as R:
+				userID = Session.checkSession(R, sessionKey, secret)
 
-		# fbInfo 출력
-		app.logger.debug(" fbInfo - %s", str(fbInfo))
+		# 인증 정보가 없으면 에러 응답
+		if userID is None:
+			response = { u'err': u'LOGIN_REQUIRED' }
+			return flask.jsonify(**response)
 
-		uid = fbInfo[ u'userID' ]
-
-		return xhrHandlers[ reqObject['req'] ] (uid, reqObject)
+		# 인증을 통과함. 정상 응답
+		return xhrHandlers[ reqObject['req'] ] (userID, reqObject)
 	except:
 		traceback.print_exc()
 	

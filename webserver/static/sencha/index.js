@@ -15,7 +15,6 @@ Ext.define('Log.Model', {
           fields: ['logid', 'date', 'who','type','text']
   }
 });
-var fbInfo = undefined;
 
 function ShowOldLog(response, request) 
 {
@@ -78,13 +77,24 @@ function RemoteRequest(request, successCallback, errorCallback, timeout) {
     return Ext.Ajax.request({
         url: '/xhr',
         method: 'GET',
-        params: { 'req': Ext.JSON.encode(request), 'fbInfo': Ext.JSON.encode(fbInfo) },
+        params: { 'req': Ext.JSON.encode(request) },
         success:function(result, request) {
             var r = Ext.JSON.decode(result.responseText, true);
             if( r !== null )
-                return successCallback(r, request);
+			{
+				if( r.err == 'LOGIN_REQUIRED' )
+				{
+					document.location = 'login.html';
+				}
+				else
+				{
+					return successCallback(r, request);
+				}
+			}
             else
+			{
                 return errorCallback(result, request);
+			}
         },
         failure: errorCallback,
         timeout: timeout
@@ -473,40 +483,20 @@ Ext.setup({
   icon: 'icon.png',
   glossOnIcon: false,
   onReady : function() {
-// FACEBOOK 인증 시작 - 이후 세션 기반으로 바뀌면 제거해야 한다
-    Ext.get("divLoad").setHtml("Processing auth info....");
-    FB.init( {
-        appId:'182399195162695',
-        cookie:true,
-        status:true,
-        oauth:true
-        } );
-    FB.getLoginStatus( function(response) {
-        if( ! response.authResponse )
-        {
-            // Login 실패
-            window.location = '/static/login.html'
-            return;
-        }
+	CreateMainView();
 
-        fbInfo = response.authResponse;
-        // FACEBOOK 인증정보 처리 끝.
-
-        CreateMainView();
-
-        var request = { 'req': 'LOG_INIT' };
-        RemoteRequest(request,
-                function(response, request) {
-                    Ext.get("divLoad").destroy();
-                    PollingLogUpdate(response, request);
-                },
-                function(response, opts) {
-                    alert("error " + response.responseText);
-                    // TODO: 네트워크 에러면 몇 번 더 시도해보자.
-                    // 더 해서 안되면 사용자 확인 후 페이지 리프레쉬!
-                },
-                60000);
-        Ext.get("divLoad").setHtml("Loading initial log....");
-    });
+	var request = { 'req': 'LOG_INIT' };
+	RemoteRequest(request,
+			function(response, request) {
+				Ext.get("divLoad").destroy();
+				PollingLogUpdate(response, request);
+			},
+			function(response, opts) {
+				alert("error " + response.responseText);
+				// TODO: 네트워크 에러면 몇 번 더 시도해보자.
+				// 더 해서 안되면 사용자 확인 후 페이지 리프레쉬!
+			},
+			60000);
+	Ext.get("divLoad").setHtml("Loading initial log....");
   }
 });
