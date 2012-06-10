@@ -260,7 +260,7 @@ def processLogin():
 		return errorResponse('no userID')
 	
 	with rpool.get() as R:
-		(skey, secr) = Session.createSession(R, userID, 86400)
+		(skey, secr) = Session.createSession(R, userID, 86400*14)
 		response = {}
 		ret = flask.jsonify(**response)
 		ret.set_cookie(u'skey', skey)
