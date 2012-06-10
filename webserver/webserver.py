@@ -260,11 +260,12 @@ def processLogin():
 		return errorResponse('no userID')
 	
 	with rpool.get() as R:
-		(skey, secr) = Session.createSession(R, userID, 86400*14)
+		sessionLifetime = 86400 * 14 # 2weeks
+		(skey, secr) = Session.createSession(R, userID, sessionLifetime)
 		response = {}
 		ret = flask.jsonify(**response)
-		ret.set_cookie(u'skey', skey)
-		ret.set_cookie(u'secr', secr)
+		ret.set_cookie(u'skey', skey, sessionLifetime)
+		ret.set_cookie(u'secr', secr, sessionLifetime)
 		return ret
 
 
