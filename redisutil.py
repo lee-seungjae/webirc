@@ -1,24 +1,24 @@
 # -*- coding: utf-8 -*
-# À¯Æ¼¿¡ÇÁÆÈ
+# ìœ í‹°ì—í”„íŒ”
 
 import redis
 import threading
 
 #-----------------------------------------------------------------------------
-# redis ·¡ÆÛ.
-# Á»´õ ÆíÇÏ°Ô ¾µ ¼ö ÀÖµµ·Ï & Ä¿³Ø¼Ç Ç®¸µ
+# redis ë˜í¼.
+# ì¢€ë” í¸í•˜ê²Œ ì“¸ ìˆ˜ ìˆë„ë¡ & ì»¤ë„¥ì…˜ í’€ë§
 class RedisEx( redis.Redis ):
 	def __init__( self, host, port, db, password ):
 		redis.Redis.__init__( self, host, port, db, password )
 		self.busy = False
 		self.pubSubPrefix = str( db ) + '/'
 
-	# hash°¡ (key, value)ÀÇ ¸®½ºÆ®·Î ¸®ÅÏµÇ´Âµ¥ ÀÌ°ÍÀº °³³ä»ó dict·Î ´Ù·ç´Â °ÍÀÌ ÆíÇÏ´Ù.
+	# hashê°€ (key, value)ì˜ ë¦¬ìŠ¤íŠ¸ë¡œ ë¦¬í„´ë˜ëŠ”ë° ì´ê²ƒì€ ê°œë…ìƒ dictë¡œ ë‹¤ë£¨ëŠ” ê²ƒì´ í¸í•˜ë‹¤.
 	def hmgetAsDict( self, k, hkeys ):
 		return dict( zip( hkeys, self.hmget( k, hkeys ) ) )
 
-	# pub/subÀº DB¸¦ ±¸ºĞÇÏÁö ¾Ê´Âµ¥ ¿ì¸® ½Ã½ºÅÛ¿¡¼­´Â ±¸ºĞÀÌ ÇÊ¿äÇÏ´Ù;;
-	# ±×·¡¼­ 
+	# pub/subì€ DBë¥¼ êµ¬ë¶„í•˜ì§€ ì•ŠëŠ”ë° ìš°ë¦¬ ì‹œìŠ¤í…œì—ì„œëŠ” êµ¬ë¶„ì´ í•„ìš”í•˜ë‹¤;;
+	# ê·¸ë˜ì„œ 
 	def publish( self, ch, text ):
 		return redis.Redis.publish( self, self.pubSubPrefix + ch, text )
 
@@ -35,7 +35,7 @@ class RedisEx( redis.Redis ):
 		self.busy = False
 
 #-----------------------------------------------------------------------------
-# redis Ä¿³Ø¼Ç Ç®
+# redis ì»¤ë„¥ì…˜ í’€
 class ConnectionPool:
 	def __init__( self, host, port, db, password ):
 		self.host = host
@@ -45,13 +45,13 @@ class ConnectionPool:
 		self.connections = []
 		self.lock = threading.Lock()
 
-		# Á¢¼Ó Å×½ºÆ®
+		# ì ‘ì† í…ŒìŠ¤íŠ¸
 		with self.get() as rc:
 			assert( rc.ping() )
 		
 	def get( self ):
-		""" redis°¡ Å¸ÀÓ¾Æ¿ôÀ¸·Î ²÷¾î¹ö¸± ¼ö ÀÖ¾î¼­ ¾ÆÁ÷ Ä¿³Ø¼ÇÇ®¸µÀº À§ÇèÇÏ´Ù.
-			ÀÌ¿¡ ´ëÇÑ Á¶Ä¡¸¦ ÃëÇÒ ¶§±îÁö ¸Å¹ø »ı¼ºÇÏµµ·Ï ÇØµÒ.
+		""" redisê°€ íƒ€ì„ì•„ì›ƒìœ¼ë¡œ ëŠì–´ë²„ë¦´ ìˆ˜ ìˆì–´ì„œ ì•„ì§ ì»¤ë„¥ì…˜í’€ë§ì€ ìœ„í—˜í•˜ë‹¤.
+			ì´ì— ëŒ€í•œ ì¡°ì¹˜ë¥¼ ì·¨í•  ë•Œê¹Œì§€ ë§¤ë²ˆ ìƒì„±í•˜ë„ë¡ í•´ë‘ .
 		with self.lock:
 			for c in self.connections:
 				if not c.busy:
@@ -68,7 +68,7 @@ class ConnectionPool:
 		return RedisEx( self.host, self.port, self.db, self.password )
 
 #-----------------------------------------------------------------------------
-# Å×½ºÆ®
+# í…ŒìŠ¤íŠ¸
 
 if __name__ == '__main__':
 	rpool = ConnectionPool( host='localhost', port=6379, db=15, password='' )

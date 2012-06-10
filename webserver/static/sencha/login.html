@@ -56,7 +56,7 @@ function Load()
 	  icon: 'icon.png',
 	  glossOnIcon: false,
 	  onReady : function() {
-	// FACEBOOK ¿Œ¡ı Ω√¿€
+	// FACEBOOK Ïù∏Ï¶ù ÏãúÏûë
 		Ext.get("divLoad").setHtml("Processing auth info....");
 		FB.init( {
 			appId:'182399195162695',
@@ -67,7 +67,7 @@ function Load()
 		FB.getLoginStatus( function(response) {
 			if( ! response.authResponse )
 			{
-				// Login Ω«∆–
+				// Login Ïã§Ìå®
 				window.location = '/static/login.html'
 				return;
 			}
