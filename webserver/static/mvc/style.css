@@ -1,0 +1,59 @@
+body {
+    font-size: 12px;
+    font-family: "나눔고딕", NanumGothic,"Helvetica Neue", HelveticaNeue, "Helvetica-Neue", Helvetica, "BBAlpha Sans", sans-serif
+}
+
+.hidden { display: none; }
+
+.logWho {
+    min-height: 5em;
+	padding-left: 5px;
+	padding-right: 5px;
+	background-color: #c0c0c0;
+    font-weight: bold;
+}
+
+.logSay {
+	padding-left: 10px;
+	padding-right: 2px;
+}
+
+.logDate {
+	padding-left: 2px;
+	padding-right: 2px;
+	color: #909090;
+	font-size: 0.7em;
+}
+
+.currenttopic, .topiclog, .topicinfo, .join, .quit, .part, .nick, .kick {
+	padding-left: 15px;
+	color: #228B22;
+}
+
+
+.logList .x-list-item .x-list-item-label {
+    min-height: 1em;
+    padding: 0em 0em;
+    margin: 0;
+    border-top: none;
+}
+
+.logList .x-list-item {
+    border-top: none;
+}
+
+#chatpanel .x-body .x-scroll-container > .x-inner {
+    padding: 0;
+}
+
+#chatbox .x-table-row .x-component-outer .x-field-input .x-input-el {
+    padding: .2em;
+    min-height: 2em;
+    border-width: 1px;
+}
+
+.x-carousel-indicator-horizontal
+{
+    bottom: none !important;
+    top: 0px !important;
+}
