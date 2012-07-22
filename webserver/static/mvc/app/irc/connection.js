@@ -109,11 +109,27 @@ connection.requestUpdate = function(updateCallback) {
 connection.requestOldLog = function(chaninfo, successCallback, errorCallback) {
   connection.request({
         request:{ 
-          'req': 'LOG_OLD', 
-          'channel': chanInfo.name, 
-          'server': chanInfo.server, 
-          'lastid': chanInfo.oldestLogID 
+          req: 'LOG_OLD', 
+          channel: chanInfo.name, 
+          server: chanInfo.server, 
+          lastid: chanInfo.oldestLogID 
   },
+        callback:{
+            success: successCallback,
+            error: errorCallback
+        },
+        timeout: 20000});
+};
+
+connection.requestSay = function(server, channel, text, successCallback, errorCallback) {
+    connection.request({
+        request: {
+            req: 'CMD',
+            cmd: 'say',
+            server: server,
+            channel: channel,
+            arg: [text]
+        },
         callback:{
             success: successCallback,
             error: errorCallback

@@ -1,8 +1,14 @@
 Ext.define('WebIRC.controller.Main', {
     extend: 'Ext.app.Controller',
     config: {
-    //refs: {},
-    //control: {}
+    refs: {
+        chatbox: '#chatbox'
+    },
+    control: {
+        chatbox: {
+            keyup: 'checkChatBox'
+        }
+    }
     },
 
     init: function() {
@@ -194,5 +200,35 @@ Ext.define('WebIRC.controller.Main', {
             }
         );
         console.log("createChanEnd");
+    },
+
+    checkChatBox: function(field, e) {
+        if( e.event.keyCode != 13 ) {
+            // 엔터키만 처리하면 된다
+            return;
+        }
+
+        var chatbox = this.getChatbox();
+        connection.requestSay(GetCurrentServer(), GetCurrentChannel(),
+                chatbox.getValue(),
+                function(response, request) {
+                    if( response['err'] ) { 
+                        // TODO: XHR 단의 에러와 프로토콜단의 err를 통합해서 하나로 묶을까 -_-;
+                        alert('say error ' + response['err']);
+                    }
+                    // TODO: 신뢰성 있는 say
+                    var chatbox = Ext.getCmp("chatbox");
+                    chatbox.setValue('');
+                    chatbox.enable();
+                    chatbox.focus();
+                },
+                function(response, opt) {
+                    console.log(response);
+                    console.log(opt);
+                    var chatbox = Ext.getCmp("chatbox");
+                    chatbox.enable();
+                    chatbox.focus();
+                    alert("Message sending failed. Resend please.");
+                });
     }
 });
