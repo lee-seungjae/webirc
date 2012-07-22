@@ -1,4 +1,4 @@
-connection = {}
+connection = {};
 
 // 서버에 XHR을 보낸다
 // option.request : 요청으로 보낼 객체(JSON.stringify 할 객체)
@@ -50,28 +50,73 @@ connection.request = function(option) {
         failure: option.callback.error,
         timeout: option.timeout
     });
-}
+};
 
 // rpc polling loop를 시작한다.
 // ui 단에서 첫 요청 성공, 매 요청 성공시, 요청 실패시 호출할 callback을 등록한다.
 connection.init = function(initCallback, updateCallback, errorCallback) {
-	this.request({ request: { 'req': 'LOG_INIT'},
+	connection.request({ request: { 'req': 'LOG_INIT'},
             callback: {
                 success: function(response, request) {
                     initCallback(response, request);
-                    this.polling(response, request, updateCallback);
+                    connection.polling(response, request, updateCallback);
                 },
-			    failed: function(response, opts) {
-                    errorCallback(response, opts);
+			    error: function(response, opts) {
                     // TODO: 네트워크 에러면 몇 번 더 시도해보자.
-                    // 더 해서 안되면 사용자 확인 후 페이지 리프레쉬!
-                    // 근데 사용자 확인은 ui한테 맡겨야지...
+
+                    // 더 해서 안되면 페이지 리프레쉬!
+                    // 근데 사용자 확인이 필요한가?
+                    errorCallback(response, opts);
                 }
             },
             timeout: 60000});
-}
+};
 
 
 // update polling function
 connection.polling = function(response, request, updateCallback) {
-}
+    updateCallback(response, request); 
+    connection.requestUpdate(updateCallback);
+};
+
+connection.requestUpdate = function(updateCallback) {
+    console.log("requestUpdate");
+    var req = { 'req': 'LOG_UPDATE', 'channels': [] };
+    for( var chan in chanDict ) {
+        if( chanDict[chan].newestLogID == undefined ) {
+            continue;
+        }
+        req.channels.push({ name: chanDict[chan].name, lastid: chanDict[chan].newestLogID, server: chanDict[chan].server });
+    }
+    connection.request({ 
+        request: req,
+        callback: {
+            success: function(response, request) {
+                connection.polling(response, request, updateCallback);
+            },
+            error: function(response, opts) {
+                // 서버 오류가 아니면 재시도가 낫겠군
+                if( response.status != 200 && ( response.status > 600 || response.status < 200 ) )
+                {
+                    connection.requestUpdate();
+                }
+            }
+        },
+        timeout: 60000
+    });
+};
+
+connection.requestOldLog = function(chaninfo, successCallback, errorCallback) {
+  connection.request({
+        request:{ 
+          'req': 'LOG_OLD', 
+          'channel': chanInfo.name, 
+          'server': chanInfo.server, 
+          'lastid': chanInfo.oldestLogID 
+  },
+        callback:{
+            success: successCallback,
+            error: errorCallback
+        },
+        timeout: 20000});
+};

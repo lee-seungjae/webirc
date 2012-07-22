@@ -11,20 +11,188 @@ Ext.define('WebIRC.controller.Main', {
     },
 
     launch: function() {
+        console.log(this);
         console.log("control launch function called");
         Ext.get("divLoad").setHtml("Loading initial log....");
+        // TODO: controller 객체를 붙여 넘길 수단을 찾아보자.
         connection.init(this.connEstablished, this.logUpdate, this.initFailed);
     },
 
     connEstablished: function() {
         Ext.get("divLoad").destroy();
+        console.log("connEstablished");
     },
 
     initFailed: function() {
-        Ext.get("divLoad").setHtml("connection failed! refresh page please.");
+        Ext.get("divLoad").setHtml("connection failed! refreshing this page....");
+        // TODO: refresh page
+        console.log("initFailed");
     },
 
-    logUpdate: function() {
-        console.log("updated");
+
+    // TODO: 일단 여기서 다 처리하게 해 놓고, 나중에 분리 생각하자
+    logUpdate: function(response, request) {
+        var mainController = WebIRC.app.getController('Main');
+        var channels = response.channels;
+        var newestChannel = undefined; // 가장 최근에 새로 들어간 채널. 없으면 undefined
+        for( var i = 0; i < channels.length; ++i ) {
+            var currChan = channels[i];
+            // 얘기한 적이 없는 채널이면 새 채널이다.
+            var currChanInfo = GetChannelInfo(currChan.server, currChan.name);
+            if( currChanInfo === undefined ) {
+                // 채널 정보를 기록한다.
+                currChanInfo = AddChannel( currChan.name, currChan.topic, currChan.users, currChan.server );
+                newestChannel = currChanInfo;
+
+                // 새 채널에 대한 정보를 화면에 표시한다.
+                mainController.createChanComponent(currChanInfo);
+            }
+            // 로그를 출력한다.
+            // Update, Init 의 정보만 처리하도록. 
+            // log는 id(시간) 순으로 정렬되어 있다고 가정한다.
+            var logStore = Ext.data.StoreManager.lookup(currChanInfo.storeID);
+
+            // 기존 마지막 로그정보를 얻어온다.
+            var currLogInfo = new Object();
+            currLogInfo.latestLog = logStore.last()? logStore.last().raw: undefined;
+
+            // 받아온 로그를 행 별로 분석한다.
+            for( var j = 0; j < currChan.log.length; ++j ) {
+                currLogInfo.item = ParseLog(currChan.log[j], currLogInfo, currChanInfo);
+
+                // 교집합이 있을 경우 처리. 가끔 같은 로그가 2번 들어와 있는 경우가 있다.
+                if( !currLogInfo.latestLog || (currLogInfo.latestLog.logid !== undefined && currLogInfo.latestLog.logid < currLogInfo.item.logid) )
+                {
+                    logStore.add(currLogInfo.item);
+
+                    // 마지막 로그 정보를 현재 로그로 업데이트한다
+                    currLogInfo.latestLog = currLogInfo.item;
+                }
+                else {
+                    console.log("duplicated log");
+                    console.log(currLogInfo);
+                }
+            }
+
+            // 변경 로그가 없으면 다음 채널을 처리하자
+            if( currChan.log.length == 0 ) {
+                continue;
+            }
+
+            // log id 정보 업데이트
+            currChanInfo.oldestLogID = logStore.first().raw.logid;
+            currChanInfo.newestLogID = logStore.last().raw.logid;
+
+            // TODO: 현재 확인중인 채널이 아니면 updated 되었음을 알려주자(say 한정).
+            // http://www.sencha.com/forum/showthread.php?118125-Carousel-indicator-overlapping-with-form-controls 근데 2.0에서 되는지는 테스트가 필요할 듯.
+
+        }
+        // 새로 들어간 채널이 있다면, 그 채널로 포커스가 옮겨가도록 한다.
+        if( newestChannel !== undefined )
+        {
+            Ext.getCmp("mainCarousel").setActiveItem(Ext.getCmp(newestChannel.listID));
+        }
+    },
+
+    createChanComponent: function(chanInfo) {
+        console.log("createChan");
+        var storeID = chanInfo.storeID;
+        var store = Ext.create('Ext.data.Store', {
+                    storeId: storeID,
+                    id: storeID,
+                    model: 'WebIRC.model.Log',
+                    sorters: 'logid',
+                    autoLoad: false,
+                    listeners: {
+                        addrecords: function(st, records, eOpts) {
+                            var list = Ext.getCmp(GetChanInfoByStoreID(st.config.id).listID);
+                            list.fireEvent("updatedata", list, records, eOpts);
+                        }
+                    }
+                });
+        console.log("addtoCarousel1");
+
+        var refreshplugin = 
+        {
+            type: 'pullrefresh',
+            refreshFn: function(plugin) {
+                  var currChanInfo = GetChanInfoByStoreID(plugin._list.config.store);
+                  connection.requestOldLog(currChanInfo, function(){}, function(response, opts) {
+                        // LOG_OLD 는 실패해도 재시도할 필요는 없다. 그냥 에러메시지만 보여주고 말자.
+                        console.log("OLD_LOG failed");
+                        console.log(response);
+                        alert("Loading old log failed.");
+                    });
+            }
+        };
+        
+        console.log("addtoCarousel");
+        Ext.getCmp("mainCarousel").add([
+            {
+                xtype: 'list',
+                id: chanInfo.listID,
+                itemTpl: '{text}',
+                mode: 'SINGLE',
+                allowDeselect: false,
+                disclosure: false,
+                cls: 'logList',
+                flex: 1,
+                store: storeID,
+                selectedCls: 'selectedlog',
+                pressedCls: 'pressedlog',
+                plugins: refreshplugin,
+                scrollable: 
+                { 
+                    direction: 'vertical',
+                    directionLock: true
+                },
+                showAnimation: 'slideIn',
+                // TODO: listner 정보만 남기고 사실 carousel 생성은 다 view로 넘겨야지?
+                listeners: {
+                    itemtap: function() {
+                        // FIXME: Timer & 화면 내 다른 영역 터치로 수정하자.
+                        //HideChanInfo();
+                    },
+                    updatedata: function(list, newData, eOpts) {
+                        var scroller = list.getScrollable().getScroller();
+                        if( !scroller.scrollLock )
+                        {
+                            scroller.scrollToEnd();
+                        }
+                    }
+                }
+            }]);
+        
+        var scroll = Ext.getCmp(chanInfo.listID).getScrollable().getScroller();
+        // list 영역 크기에 변경이 있을 경우
+        scroll.on(
+            "maxpositionchange", 
+            function(scroller, maxPosition, eOpts) {
+                if( !scroller.scrollLock && scroller.minPosition.y != maxPosition.y )
+                {
+                    scroller.scrollToEnd();
+                }
+            });
+
+        // scrollLock 여부를 결정하는 함수
+        var decideScrollLock = 
+            function(scroller, x, y, eOpts) {
+                scroller.scrollLock = scroller.maxPosition.y > y;
+            };
+
+        // scroll 이 끝났을 경우 해당 위치를 가지고 scrollLock을 판단한다.
+        scroll.on("scroll", decideScrollLock);
+        scroll.on("scrollend", decideScrollLock);
+
+        // scroll이 시작할 때에는 일단 어느 위치까지 스크롤하지 모르니 scrollLock을 켜자.
+        scroll.on(
+            "scrollstart", 
+            function(scroller, x, y, eOpts) {
+                scroller.scrollLock = true;
+                // FIXME: Timer & 화면 내 다른 영역 터치로 수정하자.
+                //HideChanInfo();
+            }
+        );
+        console.log("createChanEnd");
     }
 });

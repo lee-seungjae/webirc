@@ -1,6 +1,6 @@
 Ext.application({
     name: 'WebIRC',
-    models: [],
+    models: ['Log'],
     views: ['Main'],
     controllers: ['Main'],
     //stores: [],
