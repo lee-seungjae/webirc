@@ -80,7 +80,6 @@ connection.polling = function(response, request, updateCallback) {
 };
 
 connection.requestUpdate = function(updateCallback) {
-    console.log("requestUpdate");
     var req = { 'req': 'LOG_UPDATE', 'channels': [] };
     for( var chan in chanDict ) {
         if( chanDict[chan].newestLogID == undefined ) {
@@ -106,7 +105,7 @@ connection.requestUpdate = function(updateCallback) {
     });
 };
 
-connection.requestOldLog = function(chaninfo, successCallback, errorCallback) {
+connection.requestOldLog = function(chanInfo, successCallback, errorCallback) {
   connection.request({
         request:{ 
           req: 'LOG_OLD', 

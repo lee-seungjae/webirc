@@ -2,6 +2,7 @@ Ext.define('WebIRC.view.Main', {
     extend: 'Ext.Panel',
 
     config: {
+        id: 'mainPanel',
         fullscreen: true,
         layout: { type: 'vbox', align: 'stretch'},
         items: [
@@ -30,11 +31,10 @@ Ext.define('WebIRC.view.Main', {
             }]
         }]
     },
-    _chanInfoPanel: undefined,
-    showChanInfo: function() {
-        // 없으면 패널 생성 if( 
-    },
-    hideChanInfo: function() {
+
+    initialize: function() {
+        this.callParent(arguments);
+        Ext.create('WebIRC.view.Main.ChanInfoPanel');
     }
 });
 
@@ -42,7 +42,7 @@ Ext.define('WebIRC.view.Main.ChanInfoPanel', {
     extend: 'Ext.Panel',
 
     config: {
-        id: 'ChannelInfoPanel',
+        id: 'channelInfoPanel',
         cls: 'channelInfo',
         centered: true,
         minWidth: '30%',
@@ -52,8 +52,20 @@ Ext.define('WebIRC.view.Main.ChanInfoPanel', {
         border: '0.1px',
         padding: 3,
     },
-    show: function() {},
-    hide: function() {},
+    show: function(chanInfo) {
+        var html = chanInfo.server+"/"+ chanInfo.name + "<br />" 
+                    + chanInfo.topic + "<br />"
+                    + chanInfo.users.length + " users";
+        this.setHtml(html);
+        Ext.Viewport.add(this);
+        this._visible = true;
+    },
+
+    hide: function() {
+        Ext.Viewport.remove(this, false);
+        this._visible = false;
+    },
+
     _visible: false,
     _hideTimer: undefined
 });

@@ -53,9 +53,10 @@ logParser.topic = function (logInfo, chanInfo) {
 
 	if( !logInfo.isOldLog ) {
 		chanInfo.topic = logInfo.log[IDX_CONTENT+1];
-		// 현재 확인중인 채널이라면 토픽을 바꿔주자
+		// TODO: 현재 확인중인 채널이라면 토픽이 바뀐 것을 보여주자
 		if( GetCurrentChannel() == chanInfo.name ) {
-			ShowChanInfo(chanInfo);
+            console.log(logInfo);
+			//ShowChanInfo(chanInfo);
 		}
 	}
 	return ret;
@@ -71,10 +72,10 @@ logParser.currenttopic = function (logInfo, chanInfo) {
 		+ "</div>";
 
 	if( !logInfo.isOldLog ) {
-		chanInfo.topic = logInfo.log[IDX_CONTENT];
-		// 현재 확인중인 채널이라면 토픽을 바꿔주자
+		// TODO: 현재 확인중인 채널이라면 토픽이 바뀐 것을 보여주자
 		if( GetCurrentChannel() == chanInfo.name ) {
-			ShowChanInfo(chanInfo);
+            console.log(logInfo);
+			//ShowChanInfo(chanInfo);
 		}
 	}
 	return ret;

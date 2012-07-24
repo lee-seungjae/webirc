@@ -1,24 +1,33 @@
 Ext.define('WebIRC.controller.Main', {
     extend: 'Ext.app.Controller',
     config: {
-    refs: {
-        chatbox: '#chatbox'
-    },
-    control: {
-        chatbox: {
-            keyup: 'checkChatBox'
+        refs: {
+            chatbox: '#chatbox',
+            mainCarousel: '#mainCarousel',
+            chanInfoPanel: '#channelInfoPanel',
+            mainPanel: '#mainPanel',
+            logList: '#mainCarousel > list'
+        },
+        control: {
+            chatbox: {
+                keyup: 'checkChatBox',
+                focus: 'hideChanInfo'
+            },
+            mainCarousel: {
+                activeitemchange: 'activeChanChange',
+                tap: 'hideChanInfo'
+            },
+            logList: {
+                itemtap: 'hideChanInfo'
+            }
         }
-    }
     },
 
     init: function() {
-        console.log("init function called");
         Ext.get("divLoad").setHtml("Constructing components....");
     },
 
     launch: function() {
-        console.log(this);
-        console.log("control launch function called");
         Ext.get("divLoad").setHtml("Loading initial log....");
         // TODO: controller 객체를 붙여 넘길 수단을 찾아보자.
         connection.init(this.connEstablished, this.logUpdate, this.initFailed);
@@ -26,7 +35,6 @@ Ext.define('WebIRC.controller.Main', {
 
     connEstablished: function() {
         Ext.get("divLoad").destroy();
-        console.log("connEstablished");
     },
 
     initFailed: function() {
@@ -101,7 +109,6 @@ Ext.define('WebIRC.controller.Main', {
     },
 
     createChanComponent: function(chanInfo) {
-        console.log("createChan");
         var storeID = chanInfo.storeID;
         var store = Ext.create('Ext.data.Store', {
                     storeId: storeID,
@@ -116,14 +123,15 @@ Ext.define('WebIRC.controller.Main', {
                         }
                     }
                 });
-        console.log("addtoCarousel1");
 
         var refreshplugin = 
         {
             type: 'pullrefresh',
             refreshFn: function(plugin) {
                   var currChanInfo = GetChanInfoByStoreID(plugin._list.config.store);
-                  connection.requestOldLog(currChanInfo, function(){}, function(response, opts) {
+                  connection.requestOldLog(currChanInfo, 
+                      WebIRC.app.getController('Main').oldLog, 
+                      function(response, opts) {
                         // LOG_OLD 는 실패해도 재시도할 필요는 없다. 그냥 에러메시지만 보여주고 말자.
                         console.log("OLD_LOG failed");
                         console.log(response);
@@ -132,7 +140,6 @@ Ext.define('WebIRC.controller.Main', {
             }
         };
         
-        console.log("addtoCarousel");
         Ext.getCmp("mainCarousel").add([
             {
                 xtype: 'list',
@@ -199,7 +206,53 @@ Ext.define('WebIRC.controller.Main', {
                 //HideChanInfo();
             }
         );
-        console.log("createChanEnd");
+    },
+
+    oldLog: function(response, request) {
+        var channels = response.channels;
+        for( var i = 0; i < channels.length; ++i ) 
+        {
+            var currChan = channels[i];
+            // 얘기한 적이 없는 채널에 대해 LOG_OLD를 요청했을리 없다. 무시하자
+            var currChanInfo = GetChannelInfo(currChan.server, currChan.name);
+            if( currChanInfo === undefined ) 
+            {
+                continue;
+            }
+
+            var logStore = Ext.data.StoreManager.lookup(currChanInfo.storeID);
+
+            // 로그를 행 별로 분석한다.
+            var currLogInfo = {isOldLog: true};
+            for( var j = 0; j < currChan.log.length; ++j ) {
+                currLogInfo.item = ParseLog(currChan.log[j], currLogInfo, currChanInfo);
+
+                // 교집합이 있을 경우 처리. 가끔 같은 로그가 2번 들어와 있는 경우가 있다.
+                if( !currLogInfo.latestLog || 
+                    (currLogInfo.latestLog.logid !== undefined 
+                    && currLogInfo.latestLog.logid < currLogInfo.item.logid 
+                    && currLogInfo.item.logid < currChanInfo.oldestLogID ) )
+                {
+                    logStore.add(currLogInfo.item);
+
+                    // 마지막 로그 정보를 현재 로그로 업데이트한다
+                    currLogInfo.latestLog = currLogInfo.item;
+                }
+                else {
+                    console.log("duplicated log");
+                    console.log(currLogInfo);
+                }
+            }
+
+            // 변경 로그가 없으면 다음 채널을 처리하자
+            if( currChan.log.length == 0 ) {
+                continue;
+            }
+
+            // log id 정보 업데이트
+            currChanInfo.oldestLogID = logStore.first().raw.logid;
+            currChanInfo.newestLogID = logStore.last().raw.logid;
+        }
     },
 
     checkChatBox: function(field, e) {
@@ -216,7 +269,7 @@ Ext.define('WebIRC.controller.Main', {
                         // TODO: XHR 단의 에러와 프로토콜단의 err를 통합해서 하나로 묶을까 -_-;
                         alert('say error ' + response['err']);
                     }
-                    // TODO: 신뢰성 있는 say
+                    // TODO: 신뢰성 있는 say를 도입하면 callback으로 채팅창 건드릴 필요는 없어진다.
                     var chatbox = Ext.getCmp("chatbox");
                     chatbox.setValue('');
                     chatbox.enable();
@@ -230,5 +283,13 @@ Ext.define('WebIRC.controller.Main', {
                     chatbox.focus();
                     alert("Message sending failed. Resend please.");
                 });
+    },
+
+    activeChanChange: function(carousel, value, oldValue, eOpts) {
+        this.getChanInfoPanel().show(GetChanInfoByStoreID(value.config.store));
+    },
+
+    hideChanInfo: function() {
+        this.getChanInfoPanel().hide();
     }
 });
