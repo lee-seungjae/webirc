@@ -59,11 +59,20 @@ Ext.define('WebIRC.view.Main.ChanInfoPanel', {
         this.setHtml(html);
         Ext.Viewport.add(this);
         this._visible = true;
+        this._hideTimer = setTimeout(
+                function(p){ 
+                    return function(){ p._hideTimer=undefined; p.hide(); }
+                }(this), 
+                3000);
     },
 
     hide: function() {
         Ext.Viewport.remove(this, false);
         this._visible = false;
+        if( this._hideTimer ) {
+            clearTimeout(this._hideTimer);
+        }
+
     },
 
     _visible: false,
