@@ -162,10 +162,6 @@ Ext.define('WebIRC.controller.Main', {
                 showAnimation: 'slideIn',
                 // TODO: listner 정보만 남기고 사실 carousel 생성은 다 view로 넘겨야지?
                 listeners: {
-                    itemtap: function() {
-                        // FIXME: Timer & 화면 내 다른 영역 터치로 수정하자.
-                        //HideChanInfo();
-                    },
                     updatedata: function(list, newData, eOpts) {
                         var scroller = list.getScrollable().getScroller();
                         if( !scroller.scrollLock )
@@ -202,8 +198,6 @@ Ext.define('WebIRC.controller.Main', {
             "scrollstart", 
             function(scroller, x, y, eOpts) {
                 scroller.scrollLock = true;
-                // FIXME: Timer & 화면 내 다른 영역 터치로 수정하자.
-                //HideChanInfo();
             }
         );
     },
