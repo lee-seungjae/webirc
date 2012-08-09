@@ -35,7 +35,7 @@ connection.request = function(option) {
 				if( r.err == 'LOGIN_REQUIRED' )
 				{
                     // TODO: 로그인 후 원래대로 돌아오기
-					document.location = '/static/login.html';
+					document.location = '/static/mvc/login.html';
 				}
 				else
 				{

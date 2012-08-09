@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+	<title>webirc closed beta</title>
+	<link rel="stylesheet"href="../touch/resources/css/sencha-touch.css" type="text/css" />
+	<link rel="stylesheet"href="style.css" type="text/css" />
+	<script src="http://connect.facebook.net/en_US/all.js"></script>
+	<script type="text/javascript" src="../touch/sencha-touch-debug.js"></script>
+</head>
+<body onload='Load()'>
+<!-- FACEBOOK LOGIN { -->
+<div id="fb-root"></div>
+<!-- FACEBOOK LOGIN } -->
+<!--Loading div-->
+<div id="divLoad">Loading resources....</div>
+<script language='JavaScript'>
+Ext.require([
+    'Ext.data.Store',
+    ]);
+
+function LoginRequest(fbInfo)
+{
+	Ext.Ajax.request({
+		url: '/login',
+		method: 'GET',
+		params: { 'fbInfo': Ext.JSON.encode(fbInfo) },
+		success:function(result, request) {
+			var r = Ext.JSON.decode(result.responseText, true);
+			if( r !== null )
+			{
+				if( r.err == null )
+				{
+					document.location = 'index.html';
+				}
+				else
+				{
+					alert(r.err);
+				}
+			}
+			else
+			{
+				alert('unknown error');
+			}
+		},
+		failure: function() { alert('unknown error'); },
+		timeout: 30000
+	});
+}
+
+function Load()
+{
+	Ext.setup({
+	  tabletStartupScreen: 'tablet_startup.png',
+	  phoneStartupScreen: 'phone_startup.png',
+	  icon: 'icon.png',
+	  glossOnIcon: false,
+	  onReady : function() {
+	// FACEBOOK 인증 시작
+		Ext.get("divLoad").setHtml("Processing auth info....");
+		FB.init( {
+			appId:'182399195162695',
+			cookie:true,
+			status:true,
+			oauth:true
+			} );
+		FB.getLoginStatus( function(response) {
+			if( ! response.authResponse )
+			{
+				// Login 실패
+				window.location = '/static/login.html'
+				return;
+			}
+
+			LoginRequest(response.authResponse);
+		});
+	  }
+	});
+
+}
+
+</script>
+</body>
+</html>
