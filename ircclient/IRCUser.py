@@ -337,6 +337,17 @@ class IRCUser:
 		( ch, who, when ) = ( e.arguments[ 0 ], e.arguments[ 1 ], e.arguments[ 2 ] )
 		self.getChannel( ch ).appendLog( [ int(time.time()), u'topicinfo', who, when ] )
 
+	def on_notonchannel( self, irc, e ): # 채널에 없는데 말했을 때
+		ch = e.arguments[ 0 ]
+		channel = self.getChannel( ch )
+		channel.removeUser( self.realNickname )
+		channel.appendLog( [ int(time.time()), u'notonchannel', e.arguments[ 1 ] ] )
+		# 일단 해당 채널에서 나가자. 원치 않게 나갔으니 autojoin 플래그는 둘...까?
+		self.channelClosed( ch, True )
+
+	def on_mode( self, irc, e ): # 모드 메시지
+		nick = nm_to_n( e.source )
+		self.getChannel( e.target ).appendLog( [ int(time.time()), u'mode', nick, u", ".join( e.arguments ) ] )
 
 # test ------------------------------------------------------------------------
 if __name__ == '__main__':
