@@ -52,7 +52,13 @@ Ext.define('WebIRC.view.Main.ChanInfoPanel', {
         border: '0.1px',
         padding: 3,
     },
+
     show: function(chanInfo) {
+        if( this._hideTimer ) {
+            clearTimeout(this._hideTimer);
+            this._hideTimer = undefined;
+        }
+
         var html = chanInfo.server+"/"+ chanInfo.name + "<br />" 
                     + chanInfo.topic + "<br />"
                     + chanInfo.users.length + " users";
@@ -61,7 +67,7 @@ Ext.define('WebIRC.view.Main.ChanInfoPanel', {
         this._visible = true;
         this._hideTimer = setTimeout(
                 function(p){ 
-                    return function(){ p._hideTimer=undefined; p.hide(); }
+                    return function(){ p.hide(); }
                 }(this), 
                 3000);
     },
@@ -71,6 +77,7 @@ Ext.define('WebIRC.view.Main.ChanInfoPanel', {
         this._visible = false;
         if( this._hideTimer ) {
             clearTimeout(this._hideTimer);
+            this._hideTimer = undefined;
         }
 
     },
