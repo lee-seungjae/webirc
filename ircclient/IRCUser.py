@@ -345,6 +345,15 @@ class IRCUser:
 		# 일단 해당 채널에서 나가자. 원치 않게 나갔으니 autojoin 플래그는 둘...까?
 		self.channelClosed( ch, True )
 
+    def on_cannotsendtochan( self, irc, e ): # 채널에 말할 수 없을 때
+        # on_notonchannel 이랑 코드 중복이 있긴 한데.. 뭐 일단 두자.
+		ch = e.arguments[ 0 ]
+		channel = self.getChannel( ch )
+		channel.removeUser( self.realNickname )
+		channel.appendLog( [ int(time.time()), u'cannotsendtochan', e.arguments[ 1 ] ] )
+		# 일단 해당 채널에서 나가자. 원치 않게 나갔으니 autojoin 플래그는 둘...까?
+		self.channelClosed( ch, True )
+
 	def on_mode( self, irc, e ): # 모드 메시지
 		nick = nm_to_n( e.source )
 		self.getChannel( e.target ).appendLog( [ int(time.time()), u'mode', nick, u", ".join( e.arguments ) ] )
